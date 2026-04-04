@@ -52,7 +52,7 @@ fn random_genome(request: &GenerationRequest, rng: &mut ThreadRng) -> Genome {
     let mut assignments = Vec::new();
 
     for course in &request.courses {
-        for _ in 0..course.sessions_per_week.max(1) {
+        for _ in 0..course.sessions_per_week {
             let day = request.days.choose(rng).cloned().unwrap_or(Day::Monday);
             let slot = SessionSlot {
                 day,
@@ -232,5 +232,45 @@ mod tests {
 
         let schedule = generate_schedule(&request);
         assert_eq!(schedule.assignments.len(), 3);
+    }
+
+    #[test]
+    fn honors_zero_sessions_per_week() {
+        let subject_id = Uuid::new_v4();
+        let instructor_id = Uuid::new_v4();
+        let room_id = Uuid::new_v4();
+
+        let request = GenerationRequest {
+            courses: vec![Course {
+                id: Uuid::new_v4(),
+                name: "Independent Study".into(),
+                subject_id,
+                instructor_id,
+                sessions_per_week: 0,
+                student_count: 10,
+            }],
+            instructors: vec![Instructor {
+                id: instructor_id,
+                name: "Dr. Turing".into(),
+                max_sessions_per_day: 3,
+            }],
+            rooms: vec![Room {
+                id: room_id,
+                name: "Room 101".into(),
+                capacity: 20,
+            }],
+            subjects: vec![Subject {
+                id: subject_id,
+                name: "Computer Science".into(),
+            }],
+            days: vec![Day::Monday, Day::Tuesday],
+            periods_per_day: 4,
+            population_size: 10,
+            generations: 10,
+            mutation_rate: 0.2,
+        };
+
+        let schedule = generate_schedule(&request);
+        assert!(schedule.assignments.is_empty());
     }
 }
