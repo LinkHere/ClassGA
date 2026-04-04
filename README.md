@@ -18,6 +18,7 @@ It optimizes schedules by penalizing:
 
 ## Architecture (upgrade-friendly)
 - **HTTP API layer** (`axum`) for web integration.
+- **Leptos front-end shell** for modular, domain-first UI growth.
 - **Domain models** in `models.rs`.
 - **GA engine** isolated in `ga.rs`.
 - **Store layer** in `store.rs` for in-memory persistence today (easy to replace with Postgres/Redis later).
@@ -30,6 +31,9 @@ cargo run
 ```
 
 Server starts at `http://localhost:3000`.
+
+Web dashboard is available at:
+- `GET /`
 
 ## API
 ### Health
