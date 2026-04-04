@@ -1,3 +1,4 @@
+mod frontend;
 mod ga;
 mod models;
 mod store;
@@ -7,7 +8,7 @@ use std::{net::SocketAddr, sync::Arc};
 use axum::{
     extract::State,
     http::StatusCode,
-    response::IntoResponse,
+    response::{Html, IntoResponse},
     routing::{get, post},
     Json, Router,
 };
@@ -33,6 +34,7 @@ async fn main() {
     };
 
     let app = Router::new()
+        .route("/", get(frontend_dashboard))
         .route("/health", get(health))
         .route("/courses", post(add_course))
         .route("/instructors", post(add_instructor))
@@ -56,6 +58,10 @@ async fn health() -> Json<Health> {
         status: "ok",
         service: "classga",
     })
+}
+
+async fn frontend_dashboard() -> Html<String> {
+    Html(frontend::render_dashboard())
 }
 
 async fn add_course(
