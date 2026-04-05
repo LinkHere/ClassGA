@@ -6,8 +6,8 @@ use std::{net::SocketAddr, sync::Arc};
 
 use axum::{
     extract::State,
-    http::StatusCode,
-    response::IntoResponse,
+    http::{header, StatusCode},
+    response::{Html, IntoResponse},
     routing::{get, post},
     Json, Router,
 };
@@ -28,11 +28,13 @@ struct Health {
 
 #[tokio::main]
 async fn main() {
+    let store = AppStore::new("classga.db").expect("can initialize sqlite database");
     let state = AppState {
-        store: Arc::new(AppStore::default()),
+        store: Arc::new(store),
     };
 
     let app = Router::new()
+        .route("/", get(frontend))
         .route("/health", get(health))
         .route("/courses", post(add_course))
         .route("/instructors", post(add_instructor))
@@ -47,8 +49,15 @@ async fn main() {
         .await
         .expect("can bind listener");
 
-    println!("ClassGA API listening on http://{addr}");
+    println!("ClassGA UI/API listening on http://{addr}");
     axum::serve(listener, app).await.expect("server should run");
+}
+
+async fn frontend() -> impl IntoResponse {
+    (
+        [(header::CONTENT_TYPE, "text/html; charset=utf-8")],
+        Html(include_str!("../static/index.html")),
+    )
 }
 
 async fn health() -> Json<Health> {
@@ -61,35 +70,47 @@ async fn health() -> Json<Health> {
 async fn add_course(
     State(state): State<AppState>,
     Json(course): Json<Course>,
-) -> impl IntoResponse {
-    state.store.upsert_course(course);
-    StatusCode::CREATED
+) -> Result<StatusCode, (StatusCode, String)> {
+    state.store.upsert_course(course).map_err(internal_error)?;
+    Ok(StatusCode::CREATED)
 }
 
 async fn add_instructor(
     State(state): State<AppState>,
     Json(instructor): Json<Instructor>,
-) -> impl IntoResponse {
-    state.store.upsert_instructor(instructor);
-    StatusCode::CREATED
+) -> Result<StatusCode, (StatusCode, String)> {
+    state
+        .store
+        .upsert_instructor(instructor)
+        .map_err(internal_error)?;
+    Ok(StatusCode::CREATED)
 }
 
-async fn add_room(State(state): State<AppState>, Json(room): Json<Room>) -> impl IntoResponse {
-    state.store.upsert_room(room);
-    StatusCode::CREATED
+async fn add_room(
+    State(state): State<AppState>,
+    Json(room): Json<Room>,
+) -> Result<StatusCode, (StatusCode, String)> {
+    state.store.upsert_room(room).map_err(internal_error)?;
+    Ok(StatusCode::CREATED)
 }
 
 async fn add_subject(
     State(state): State<AppState>,
     Json(subject): Json<Subject>,
-) -> impl IntoResponse {
-    state.store.upsert_subject(subject);
-    StatusCode::CREATED
+) -> Result<StatusCode, (StatusCode, String)> {
+    state
+        .store
+        .upsert_subject(subject)
+        .map_err(internal_error)?;
+    Ok(StatusCode::CREATED)
 }
 
-async fn set_days(State(state): State<AppState>, Json(days): Json<Vec<Day>>) -> impl IntoResponse {
-    state.store.set_days(days);
-    StatusCode::CREATED
+async fn set_days(
+    State(state): State<AppState>,
+    Json(days): Json<Vec<Day>>,
+) -> Result<StatusCode, (StatusCode, String)> {
+    state.store.set_days(days).map_err(internal_error)?;
+    Ok(StatusCode::CREATED)
 }
 
 async fn generate(
@@ -97,19 +118,19 @@ async fn generate(
     Json(mut request): Json<GenerationRequest>,
 ) -> Result<Json<models::Schedule>, (StatusCode, String)> {
     if request.courses.is_empty() {
-        request.courses = state.store.courses.read().values().cloned().collect();
+        request.courses = state.store.courses().map_err(internal_error)?;
     }
     if request.instructors.is_empty() {
-        request.instructors = state.store.instructors.read().values().cloned().collect();
+        request.instructors = state.store.instructors().map_err(internal_error)?;
     }
     if request.rooms.is_empty() {
-        request.rooms = state.store.rooms.read().values().cloned().collect();
+        request.rooms = state.store.rooms().map_err(internal_error)?;
     }
     if request.subjects.is_empty() {
-        request.subjects = state.store.subjects.read().values().cloned().collect();
+        request.subjects = state.store.subjects().map_err(internal_error)?;
     }
     if request.days.is_empty() {
-        request.days = state.store.days.read().clone();
+        request.days = state.store.days().map_err(internal_error)?;
     }
 
     if request.courses.is_empty()
@@ -132,4 +153,11 @@ async fn generate(
     }
 
     Ok(Json(ga::generate_schedule(&request)))
+}
+
+fn internal_error(err: rusqlite::Error) -> (StatusCode, String) {
+    (
+        StatusCode::INTERNAL_SERVER_ERROR,
+        format!("database error: {err}"),
+    )
 }

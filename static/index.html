@@ -1,0 +1,153 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>ClassGA Scheduler</title>
+  <style>
+    body { font-family: system-ui, sans-serif; margin: 2rem; max-width: 900px; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 1rem; }
+    .card { border: 1px solid #ddd; border-radius: 8px; padding: 1rem; }
+    input, button, textarea { width: 100%; padding: .5rem; margin: .3rem 0; }
+    pre { background: #111; color: #eee; padding: 1rem; border-radius: 6px; overflow: auto; }
+  </style>
+</head>
+<body>
+  <h1>ClassGA Scheduler</h1>
+  <p>Frontend connected to Rust API with SQLite persistence.</p>
+
+  <div class="grid">
+    <div class="card">
+      <h3>Add Subject</h3>
+      <input id="subject-name" placeholder="Subject name" />
+      <button onclick="addSubject()">Save Subject</button>
+    </div>
+    <div class="card">
+      <h3>Add Instructor</h3>
+      <input id="instr-name" placeholder="Instructor name" />
+      <input id="instr-max" type="number" value="3" placeholder="Max sessions/day" />
+      <button onclick="addInstructor()">Save Instructor</button>
+    </div>
+    <div class="card">
+      <h3>Add Room</h3>
+      <input id="room-name" placeholder="Room name" />
+      <input id="room-cap" type="number" value="40" placeholder="Capacity" />
+      <button onclick="addRoom()">Save Room</button>
+    </div>
+    <div class="card">
+      <h3>Add Course</h3>
+      <input id="course-name" placeholder="Course name" />
+      <input id="course-sessions" type="number" value="3" placeholder="Sessions/week" />
+      <input id="course-students" type="number" value="30" placeholder="Student count" />
+      <button onclick="addCourse()">Save Course</button>
+    </div>
+  </div>
+
+  <div class="card" style="margin-top:1rem;">
+    <h3>Days + Generate</h3>
+    <input id="days" value="Monday,Tuesday,Wednesday,Thursday,Friday" />
+    <input id="periods" type="number" value="5" />
+    <input id="population" type="number" value="50" />
+    <input id="generations" type="number" value="200" />
+    <input id="mutation" type="number" step="0.01" value="0.15" />
+    <button onclick="saveDays()">Save Days</button>
+    <button onclick="generate()">Generate Schedule</button>
+  </div>
+
+  <h3>Output</h3>
+  <pre id="output">Ready.</pre>
+
+<script>
+  const state = { subjects: [], instructors: [], rooms: [] };
+
+  function uuid() {
+    return crypto.randomUUID();
+  }
+
+  function log(data) {
+    document.getElementById('output').textContent = typeof data === 'string' ? data : JSON.stringify(data, null, 2);
+  }
+
+  async function post(path, body) {
+    const res = await fetch(path, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(body)
+    });
+    if (!res.ok) {
+      throw new Error(await res.text());
+    }
+    return res;
+  }
+
+  async function addSubject() {
+    const subject = { id: uuid(), name: document.getElementById('subject-name').value.trim() };
+    await post('/subjects', subject);
+    state.subjects.push(subject);
+    log('Subject saved');
+  }
+
+  async function addInstructor() {
+    const instructor = {
+      id: uuid(),
+      name: document.getElementById('instr-name').value.trim(),
+      max_sessions_per_day: Number(document.getElementById('instr-max').value)
+    };
+    await post('/instructors', instructor);
+    state.instructors.push(instructor);
+    log('Instructor saved');
+  }
+
+  async function addRoom() {
+    const room = {
+      id: uuid(),
+      name: document.getElementById('room-name').value.trim(),
+      capacity: Number(document.getElementById('room-cap').value)
+    };
+    await post('/rooms', room);
+    state.rooms.push(room);
+    log('Room saved');
+  }
+
+  async function addCourse() {
+    if (!state.subjects.length || !state.instructors.length) {
+      log('Add at least one subject and instructor first.');
+      return;
+    }
+    const course = {
+      id: uuid(),
+      name: document.getElementById('course-name').value.trim(),
+      subject_id: state.subjects[state.subjects.length - 1].id,
+      instructor_id: state.instructors[state.instructors.length - 1].id,
+      sessions_per_week: Number(document.getElementById('course-sessions').value),
+      student_count: Number(document.getElementById('course-students').value)
+    };
+    await post('/courses', course);
+    log('Course saved');
+  }
+
+  async function saveDays() {
+    const days = document.getElementById('days').value.split(',').map(s => s.trim()).filter(Boolean);
+    await post('/days', days);
+    log('Days saved');
+  }
+
+  async function generate() {
+    const payload = {
+      courses: [],
+      instructors: [],
+      rooms: [],
+      subjects: [],
+      days: [],
+      periods_per_day: Number(document.getElementById('periods').value),
+      population_size: Number(document.getElementById('population').value),
+      generations: Number(document.getElementById('generations').value),
+      mutation_rate: Number(document.getElementById('mutation').value)
+    };
+    const res = await post('/schedule/generate', payload);
+    const data = await res.json();
+    log(data);
+  }
+</script>
+</body>
+</html>

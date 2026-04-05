@@ -41,6 +41,31 @@ pub enum Day {
     Saturday,
 }
 
+impl Day {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            Day::Monday => "Monday",
+            Day::Tuesday => "Tuesday",
+            Day::Wednesday => "Wednesday",
+            Day::Thursday => "Thursday",
+            Day::Friday => "Friday",
+            Day::Saturday => "Saturday",
+        }
+    }
+
+    pub fn from_str(s: &str) -> Self {
+        match s {
+            "Monday" => Day::Monday,
+            "Tuesday" => Day::Tuesday,
+            "Wednesday" => Day::Wednesday,
+            "Thursday" => Day::Thursday,
+            "Friday" => Day::Friday,
+            "Saturday" => Day::Saturday,
+            _ => Day::Monday,
+        }
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SessionSlot {
     pub day: Day,
