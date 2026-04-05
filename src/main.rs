@@ -2,7 +2,7 @@ mod ga;
 mod models;
 mod store;
 
-use std::{net::SocketAddr, sync::Arc};
+use std::{env, net::SocketAddr, sync::Arc};
 
 use axum::{
     extract::State,
@@ -14,6 +14,7 @@ use axum::{
 use models::{Course, Day, GenerationRequest, Instructor, Room, Subject};
 use serde::Serialize;
 use store::AppStore;
+use tower_http::cors::{Any, CorsLayer};
 
 #[derive(Clone)]
 struct AppState {
@@ -40,14 +41,21 @@ async fn main() {
         .route("/subjects", post(add_subject))
         .route("/days", post(set_days))
         .route("/schedule/generate", post(generate))
+        .layer(
+            CorsLayer::new()
+                .allow_origin(Any)
+                .allow_methods(Any)
+                .allow_headers(Any),
+        )
         .with_state(state);
 
-    let addr: SocketAddr = "0.0.0.0:3000".parse().expect("valid address");
+    let port = env::var("PORT").unwrap_or_else(|_| "3001".to_string());
+    let addr: SocketAddr = format!("0.0.0.0:{port}").parse().expect("valid address");
     let listener = tokio::net::TcpListener::bind(addr)
         .await
         .expect("can bind listener");
 
-    println!("ClassGA API listening on http://{addr}");
+    println!("ClassGA API listening on http://localhost:{port}");
     axum::serve(listener, app).await.expect("server should run");
 }
 

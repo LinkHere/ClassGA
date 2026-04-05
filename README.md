@@ -29,7 +29,12 @@ This separation makes future upgrades straightforward (auth, persistence, multi-
 cargo run
 ```
 
-Server starts at `http://localhost:3000`.
+Server starts at `http://localhost:3001` by default.
+
+> Default API port is now `3001` to avoid clashing with front-end dev servers (commonly `3000`).
+> You can override it with `PORT`, for example: `PORT=4000 cargo run`.
+
+When connecting from the browser, call the API with `http://localhost:3001` (or `http://127.0.0.1:3001`) instead of `http://0.0.0.0:3001`.
 
 ## API
 ### Health
